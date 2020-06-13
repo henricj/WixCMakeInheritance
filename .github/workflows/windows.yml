@@ -64,9 +64,15 @@ jobs:
         Export-WorkflowValue 'PROJECT_TOOLS_TMP' (Join-Path $root -ChildPath 'tools.tmp')
         $git_describe = git -C "$source" describe --tags --dirty --always
         $output_name = 'WixCMakeInheritance-{0}-{1}' -f $platform, $git_describe
+        $msi_zip_name =   'MSI-' + $output_name + '.zip'
+        $exe_zip_name =   'Setup-' + $output_name + '.zip'
         Export-WorkflowValue 'PROJECT_OUTPUT_NAME' $output_name
-        Export-WorkflowValue 'PROJECT_MSI' (Join-Path $build -ChildPath ($output_name + '.msi'))
+        Export-WorkflowValue 'PROJECT_MSI' (Join-Path $build -ChildPath ( $output_name + '.msi'))
+        Export-WorkflowValue 'PROJECT_MSI_ZIP' (Join-Path $build -ChildPath $msi_zip_name)
+        Export-WorkflowValue 'PROJECT_MSI_ZIP_NAME' $msi_zip_name
         Export-WorkflowValue 'PROJECT_INSTALLER' (Join-Path $build -ChildPath ($output_name + '.exe'))
+        Export-WorkflowValue 'PROJECT_INSTALLER_ZIP' (Join-Path $build -ChildPath $exe_zip_name)
+        Export-WorkflowValue 'PROJECT_INSTALLER_ZIP_NAME' $exe_zip_name
 
     - name: Cache tools
       uses: actions/cache@v2
@@ -140,4 +146,45 @@ jobs:
       with:
         name: wix-logs-${{ matrix.config.platform }}
         path: ${{ env.PROJECT_BUILD }}/**/*.log
+
+    - name: Prepare for release
+      run: |
+        cd "${{env.PROJECT_SOURCE}}"
+        #git tag -f latest-${{matrix.config.platform}}${{matrix.config.name_postfix}} ${{github.ref}}
+        #git push -f --tags
+        git tag -d latest-${{matrix.config.platform}}${{matrix.config.name_postfix}}
+        git push -d origin latest-${{matrix.config.platform}}${{matrix.config.name_postfix}}
+        7z a -tzip "${{env.PROJECT_MSI_ZIP}}" ./license.rtf "${{env.PROJECT_MSI}}"
+        7z a -tzip "${{env.PROJECT_INSTALLER_ZIP}}" ./license.rtf "${{env.PROJECT_INSTALLER}}"
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: latest-${{matrix.config.platform}}${{matrix.config.name_postfix}}
+        release_name: ${{env.PROJECT_OUTPUT_NAME}}
+        draft: false
+        prerelease: true
+
+    - name: Upload Release MSI
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{env.PROJECT_MSI_ZIP}}
+        asset_name: ${{env.PROJECT_MSI_ZIP_NAME}}
+        asset_content_type: application/zip
+
+    - name: Upload Release EXE
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{env.PROJECT_INSTALLER_ZIP}}
+        asset_name: ${{env.PROJECT_INSTALLER_ZIP_NAME}}
+        asset_content_type: application/zip
 
