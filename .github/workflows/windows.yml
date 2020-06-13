@@ -142,7 +142,7 @@ jobs:
         path: ${{ env.PROJECT_BUILD }}/**/*.log
 
     - name: Delete release tag
-      run: git tag -d latest-${{matrix.config.platform}}${{matrix.config.name_postfix}}
+      run: git -C ${{env.PROJECT_SOURCE}} tag -d latest-${{matrix.config.platform}}${{matrix.config.name_postfix}}
 
     - name: Create Release
       id: create_release
