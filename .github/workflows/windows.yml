@@ -141,3 +141,34 @@ jobs:
         name: wix-logs-${{ matrix.config.platform }}
         path: ${{ env.PROJECT_BUILD }}/**/*.log
 
+    - name: Delete release tag
+      run: git tag -d latest-${{matrix.config.platform}}${{matrix.config.name_postfix}}
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: latest-${{matrix.config.platform}}${{matrix.config.name_postfix}}
+        release_name: ${{env.PROJECT_OUTPUT_NAME}}
+        draft: false
+        prerelease: true
+
+    - name: Upload Release MSI
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{env.PROJECT_MSI}}
+        asset_name: ${{env.PROJECT_OUTPUT_NAME}}.msi
+
+    - name: Upload Release EXE
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{env.PROJECT_INSTALLER}}
+        asset_name: ${{env.PROJECT_OUTPUT_NAME}}.exe
